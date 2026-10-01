@@ -269,7 +269,7 @@
       <div class="flex flex-wrap items-center justify-between gap-2 text-xs font-mono text-zinc-400 bg-[#0E0E12] border border-brand-border rounded-xl p-2.5">
         <div class="flex items-center gap-2">
           <span class="flex items-center gap-1.5 text-zinc-300">
-            <i class="fa-solid fa-bolt text-emerald-400 text-[11px]"></i> Auto-Catchup Active
+            <i class="fa-solid fa-bolt text-emerald-400 text-[11px]"></i> <span id="syncStatusText">Auto-Catchup Active</span>
           </span>
         </div>
 
@@ -553,37 +553,71 @@
       }
     }
 
-    // Auto-unfreeze watchdog (Bila buffering / stuck > 3 detik, otomatis kejar live edge terbaru)
-    let stallWatchdog = null;
-    videoPlayer.addEventListener('waiting', () => {
-      clearTimeout(stallWatchdog);
-      stallWatchdog = setTimeout(() => {
-        if (videoPlayer.buffered && videoPlayer.buffered.length > 0) {
-          const latestTime = videoPlayer.buffered.end(videoPlayer.buffered.length - 1);
-          if (latestTime - videoPlayer.currentTime > 0.8) {
-            console.log('[Anti-Stuck] Catching up to latest live edge...');
-            videoPlayer.currentTime = latestTime - 0.3;
-            videoPlayer.play().catch(() => {});
-          }
-        } else if (hlsInstance) {
-          hlsInstance.startLoad();
-        }
-      }, 3000);
-    });
+    // Fungsi Reconnect / Sync Live
+    function triggerSync(isAuto = false) {
+      if (!currentStreamUrl) return;
+      if (syncIcon) syncIcon.classList.add('fa-spin');
 
-    videoPlayer.addEventListener('playing', () => {
-      clearTimeout(stallWatchdog);
-    });
+      const badgeText = document.getElementById('syncStatusText');
+      if (badgeText && isAuto) {
+        badgeText.textContent = 'Auto-Resyncing...';
+        badgeText.className = 'text-amber-400 font-bold';
+      }
+
+      initPlayer(currentStreamUrl);
+
+      setTimeout(() => {
+        if (syncIcon) syncIcon.classList.remove('fa-spin');
+        if (badgeText) {
+          badgeText.textContent = 'Auto-Catchup Active';
+          badgeText.className = 'text-zinc-300';
+        }
+      }, 1500);
+    }
 
     // Manual Reconnect Live Sync Button
     syncLiveBtn.addEventListener('click', () => {
-      if (!currentStreamUrl) return;
-      syncIcon.classList.add('fa-spin');
-      initPlayer(currentStreamUrl);
-      setTimeout(() => {
-        syncIcon.classList.remove('fa-spin');
-      }, 1200);
+      triggerSync(false);
     });
+
+    // ACTIVE HEARTBEAT WATCHDOG (Mendeteksi detik video macet di SEMUA browser termasuk iPhone Safari)
+    let lastTime = 0;
+    let stuckCount = 0;
+    let isUserPaused = false;
+
+    videoPlayer.addEventListener('pause', () => {
+      // Tandai jika sengaja di-pause manual
+      if (videoPlayer.duration && videoPlayer.currentTime < videoPlayer.duration - 1) {
+        isUserPaused = true;
+      }
+    });
+
+    videoPlayer.addEventListener('play', () => {
+      isUserPaused = false;
+      stuckCount = 0;
+      lastTime = videoPlayer.currentTime;
+    });
+
+    // Cek setiap 1.5 detik: jika video macet > 3 detik, otomatis resync persis seperti tombol manual!
+    setInterval(() => {
+      if (!currentStreamUrl || isUserPaused || videoPlayer.paused) return;
+
+      const currentTime = videoPlayer.currentTime;
+      // Jika detik video tidak bertambah
+      if (currentTime > 0 && Math.abs(currentTime - lastTime) < 0.25) {
+        stuckCount++;
+        console.warn(`[Watchdog] Video freeze terdeteksi: ${stuckCount * 1.5}s`);
+
+        if (stuckCount >= 2) {
+          console.log('[Watchdog] Menjalankan Auto-Sync otomatis!');
+          stuckCount = 0;
+          triggerSync(true);
+        }
+      } else {
+        stuckCount = 0;
+        lastTime = currentTime;
+      }
+    }, 1500);
 
     // Resolution Quality Selector Listener (YouTube Style)
     qualitySelect.addEventListener('change', () => {
