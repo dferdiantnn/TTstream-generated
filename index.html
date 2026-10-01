@@ -265,14 +265,28 @@
         <video id="videoPlayer" controls playsinline class="w-full h-full object-contain"></video>
       </div>
 
-      <!-- Anti-Stuck Live Sync Bar -->
-      <div class="flex items-center justify-between text-xs font-mono text-zinc-400 bg-[#0E0E12] border border-brand-border rounded-xl px-3 py-2">
-        <span class="flex items-center gap-1.5 text-zinc-300">
-          <i class="fa-solid fa-bolt text-emerald-400 text-[11px]"></i> Auto-Catchup Active
-        </span>
-        <button type="button" id="syncLiveBtn" class="btn-spring px-2.5 py-1 bg-brand-border hover:bg-zinc-700 text-brand-yellow font-bold rounded-lg border border-zinc-600 flex items-center gap-1.5 text-[11px] uppercase">
-          <i id="syncIcon" class="fa-solid fa-rotate text-[10px]"></i> Sync Ulang Live
-        </button>
+      <!-- Playback & Quality Control Bar -->
+      <div class="flex flex-wrap items-center justify-between gap-2 text-xs font-mono text-zinc-400 bg-[#0E0E12] border border-brand-border rounded-xl p-2.5">
+        <div class="flex items-center gap-2">
+          <span class="flex items-center gap-1.5 text-zinc-300">
+            <i class="fa-solid fa-bolt text-emerald-400 text-[11px]"></i> Auto-Catchup Active
+          </span>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <!-- Resolution Selector (YouTube Style) -->
+          <div class="flex items-center gap-1.5 bg-brand-card border border-brand-border rounded-lg px-2 py-1 shadow-inner">
+            <i class="fa-solid fa-gear text-brand-yellow text-[10px]"></i>
+            <select id="qualitySelect" class="bg-transparent text-white text-[11px] font-mono outline-none cursor-pointer">
+              <option value="-1" class="bg-zinc-900 text-white">Auto (Res)</option>
+            </select>
+          </div>
+
+          <!-- Sync Ulang Live Button -->
+          <button type="button" id="syncLiveBtn" class="btn-spring px-2.5 py-1 bg-brand-border hover:bg-zinc-700 text-brand-yellow font-bold rounded-lg border border-zinc-600 flex items-center gap-1.5 text-[11px] uppercase">
+            <i id="syncIcon" class="fa-solid fa-rotate text-[10px]"></i> Sync Live
+          </button>
+        </div>
       </div>
 
       <!-- M3U8 URL Container -->
@@ -360,6 +374,7 @@
     const vlcBtn = document.getElementById('vlcBtn');
     const syncLiveBtn = document.getElementById('syncLiveBtn');
     const syncIcon = document.getElementById('syncIcon');
+    const qualitySelect = document.getElementById('qualitySelect');
 
     let hlsInstance = null;
     let currentStreamUrl = '';
@@ -451,6 +466,7 @@
         // Native Apple HLS (Safari iOS & Mac)
         videoPlayer.src = streamUrl;
         videoPlayer.play().catch(() => {});
+        qualitySelect.innerHTML = '<option value="-1" class="bg-zinc-900 text-white">Auto (iOS HLS)</option>';
       } else if (Hls.isSupported()) {
         // High-resilience Low-Latency Hls.js configuration
         hlsInstance = new Hls({
@@ -473,6 +489,41 @@
 
         hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
           videoPlayer.play().catch(() => {});
+
+          // Populate resolution options (YouTube Style)
+          qualitySelect.innerHTML = '';
+          const autoOpt = document.createElement('option');
+          autoOpt.value = -1;
+          autoOpt.className = 'bg-zinc-900 text-white';
+          autoOpt.textContent = 'Auto (Adaptif)';
+          qualitySelect.appendChild(autoOpt);
+
+          if (hlsInstance.levels && hlsInstance.levels.length > 0) {
+            hlsInstance.levels.forEach((lvl, idx) => {
+              const opt = document.createElement('option');
+              opt.value = idx;
+              opt.className = 'bg-zinc-900 text-white';
+              const resHeight = lvl.height || (lvl.attrs && lvl.attrs.RESOLUTION ? lvl.attrs.RESOLUTION.split('x')[1] : null);
+              opt.textContent = resHeight ? `${resHeight}p` : `Kualitas ${idx + 1}`;
+              qualitySelect.appendChild(opt);
+            });
+          } else {
+            const defOpt = document.createElement('option');
+            defOpt.value = 0;
+            defOpt.className = 'bg-zinc-900 text-white';
+            defOpt.textContent = '720p HD';
+            qualitySelect.appendChild(defOpt);
+          }
+        });
+
+        hlsInstance.on(Hls.Events.LEVEL_SWITCHED, (event, data) => {
+          if (hlsInstance.autoLevelEnabled) {
+            const curLvl = hlsInstance.levels[data.level];
+            if (curLvl && curLvl.height) {
+              const autoOpt = qualitySelect.querySelector('option[value="-1"]');
+              if (autoOpt) autoOpt.textContent = `Auto (${curLvl.height}p)`;
+            }
+          }
         });
 
         // Auto error recovery
@@ -532,6 +583,15 @@
       setTimeout(() => {
         syncIcon.classList.remove('fa-spin');
       }, 1200);
+    });
+
+    // Resolution Quality Selector Listener (YouTube Style)
+    qualitySelect.addEventListener('change', () => {
+      if (hlsInstance) {
+        const selectedLvl = parseInt(qualitySelect.value, 10);
+        hlsInstance.currentLevel = selectedLvl;
+        console.log('[Quality] Level diubah ke:', selectedLvl);
+      }
     });
 
     // Copy to clipboard with Canvas Confetti (from kokopcoffee style)
