@@ -466,7 +466,7 @@
         // Native Apple HLS (Safari iOS & Mac)
         videoPlayer.src = streamUrl;
         videoPlayer.play().catch(() => {});
-        qualitySelect.innerHTML = '<option value="-1" class="bg-zinc-900 text-white">Auto (iOS HLS)</option>';
+        qualitySelect.innerHTML = '<option value="-1" class="bg-zinc-900 text-white">Auto (HD)</option>';
       } else if (Hls.isSupported()) {
         // High-resilience Low-Latency Hls.js configuration
         hlsInstance = new Hls({
