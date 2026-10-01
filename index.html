@@ -1,133 +1,280 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="id" class="scroll-smooth">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Tiktok live generator link - kandang monyet</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+
+  <!-- Google Fonts: Outfit, Plus Jakarta Sans, Space Grotesk (from kokopcoffee) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+
+  <!-- Font Awesome 6 CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- HLS.js for browser stream playback -->
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <!-- Canvas Confetti (from kokopcoffee) -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              yellow: '#FFD100',
+              orange: '#FF5E00',
+              dark: '#0C0C0E',
+              card: '#16161A',
+              cardHover: '#1C1C22',
+              border: '#2A2A32',
+              borderLight: '#3E3E4A',
+              muted: '#8E8E93',
+              tag: '#222228'
+            }
+          },
+          fontFamily: {
+            heading: ['Outfit', 'sans-serif'],
+            sans: ['Plus Jakarta Sans', 'sans-serif'],
+            mono: ['Space Grotesk', 'monospace']
+          },
+          boxShadow: {
+            'brutal': '4px 4px 0px 0px #000000',
+            'brutal-sm': '2.5px 2.5px 0px 0px #000000',
+            'brutal-yellow': '4px 4px 0px 0px #FFD100',
+            'brutal-orange': '4px 4px 0px 0px #FF5E00'
+          },
+          keyframes: {
+            marquee: {
+              '0%': { transform: 'translateX(0%)' },
+              '100%': { transform: 'translateX(-50%)' }
+            },
+            pulseBlink: {
+              '0%, 100%': { opacity: '1', transform: 'scale(1)' },
+              '50%': { opacity: '0.35', transform: 'scale(0.85)' }
+            }
+          },
+          animation: {
+            'marquee': 'marquee 16s linear infinite',
+            'blink': 'pulseBlink 1.4s ease-in-out infinite'
+          }
+        }
+      }
+    }
+  </script>
+
   <style>
     body {
+      background-color: #0A0A0C;
+      color: #F4F4F6;
       font-family: 'Plus Jakarta Sans', sans-serif;
-      background-color: #09090b;
-      color: #f4f4f5;
+      overflow-x: hidden;
+      -webkit-tap-highlight-color: transparent;
     }
-    .gradient-glow {
-      background: radial-gradient(circle at 50% 0%, rgba(39, 39, 42, 0.45) 0%, transparent 65%);
+
+    /* Carbon Grid Texture */
+    .carbon-bg {
+      background-color: #0A0A0C;
+      background-image: 
+        radial-gradient(circle at 50% 0%, rgba(255, 209, 0, 0.08) 0%, transparent 55%),
+        linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+      background-size: 100% 100%, 28px 28px, 28px 28px;
     }
-    .glass-card {
-      background: rgba(18, 18, 23, 0.95);
-      backdrop-filter: blur(12px);
-      border: 1px solid rgba(255, 255, 255, 0.08);
+
+    /* Neo-Brutalist Spring Buttons (from kokopcoffee) */
+    .btn-spring {
+      transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, background-color 0.15s ease;
+    }
+    .btn-spring:hover {
+      transform: translateY(-3px) scale(1.01);
+    }
+    .btn-spring:active {
+      transform: translateY(2px) scale(0.97);
+      box-shadow: 1px 1px 0px 0px #000000 !important;
+    }
+
+    .sticker-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      border: 2px solid #000000;
+      font-weight: 800;
+      text-transform: uppercase;
+      box-shadow: 2.5px 2.5px 0px #000000;
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0A0A0C;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #2A2A32;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #FFD100;
     }
   </style>
 </head>
-<body class="min-h-screen gradient-glow flex flex-col justify-between p-4 md:p-8">
+<body class="carbon-bg min-h-screen flex flex-col justify-between selection:bg-brand-yellow selection:text-black">
 
-  <!-- Header -->
-  <header class="max-w-3xl mx-auto w-full text-center py-8">
-    <h1 class="text-3xl md:text-5xl font-black tracking-tight text-white mb-2 leading-tight">
-      Tiktok live generator link<br>
-      <span class="text-zinc-400 text-2xl md:text-4xl font-semibold">kandang monyet</span>
-    </h1>
-  </header>
+  <!-- TOP RUNNING TICKER / MARQUEE (from kokopcoffee style) -->
+  <aside aria-label="Pengumuman Berjalan" class="bg-brand-dark text-white font-mono text-xs font-bold py-2 overflow-hidden border-b-2 border-brand-border flex select-none relative z-30 shadow-md">
+    <div class="flex animate-marquee whitespace-nowrap gap-8 items-center">
+      <span class="inline-flex items-center gap-2"><i class="fa-solid fa-circle text-red-500 animate-blink"></i> TIKTOK LIVE DIRECT M3U8 GENERATOR</span>
+      <span class="text-brand-yellow"><i class="fa-solid fa-bolt"></i></span>
+      <span class="inline-flex items-center gap-2">🐵 KANDANG MONYET SPECIAL ENGINE</span>
+      <span class="text-brand-yellow"><i class="fa-solid fa-bolt"></i></span>
+      <span class="inline-flex items-center gap-2"><i class="fa-brands fa-apple text-zinc-300"></i> SUPPORT IPHONE SAFARI NATIVE PIP</span>
+      <span class="text-brand-yellow"><i class="fa-solid fa-bolt"></i></span>
+      <span class="inline-flex items-center gap-2"><i class="fa-solid fa-shield-halved text-emerald-400"></i> TANPA LOGIN & ANTI BOT WAF</span>
+      <span class="text-brand-yellow"><i class="fa-solid fa-bolt"></i></span>
+      <span class="inline-flex items-center gap-2"><i class="fa-brands fa-instagram text-brand-yellow"></i> CRAFTED BY @DFERDIANTN</span>
+      <span class="text-brand-yellow"><i class="fa-solid fa-bolt"></i></span>
+      <span class="inline-flex items-center gap-2"><i class="fa-solid fa-circle text-red-500 animate-blink"></i> TIKTOK LIVE DIRECT M3U8 GENERATOR</span>
+      <span class="text-brand-yellow"><i class="fa-solid fa-bolt"></i></span>
+      <span class="inline-flex items-center gap-2">🐵 KANDANG MONYET SPECIAL ENGINE</span>
+      <span class="text-brand-yellow"><i class="fa-solid fa-bolt"></i></span>
+    </div>
+  </aside>
 
-  <!-- Main Content -->
-  <main class="max-w-2xl mx-auto w-full flex-1">
-    <!-- Form Card -->
-    <div class="glass-card rounded-2xl p-6 md:p-8 shadow-2xl mb-6">
+  <!-- NAVBAR MINI -->
+  <nav class="max-w-3xl mx-auto w-full px-4 pt-6 flex items-center justify-between">
+    <div class="flex items-center gap-2.5">
+      <div class="w-10 h-10 bg-brand-card border-2 border-brand-border rounded-xl flex items-center justify-center shadow-brutal-sm text-xl">
+        🐒
+      </div>
+      <div>
+        <span class="font-heading font-black text-sm tracking-tight block leading-tight text-white">KANDANG MONYET</span>
+        <span class="font-mono text-[10px] text-zinc-400 font-semibold uppercase tracking-wider block">Stream Extractor</span>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-brand-card border-2 border-brand-border rounded-xl text-[11px] font-mono font-bold text-emerald-400 shadow-brutal-sm">
+        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-blink"></span>
+        SYSTEM ONLINE
+      </span>
+    </div>
+  </nav>
+
+  <!-- MAIN CONTAINER -->
+  <main class="max-w-2xl mx-auto w-full px-4 py-8 flex-1 space-y-6">
+
+    <!-- HERO HEADER -->
+    <header class="text-center space-y-3">
+      <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-xl bg-brand-card border-2 border-brand-border text-xs font-mono font-bold text-brand-yellow shadow-brutal-sm">
+        <i class="fa-solid fa-satellite-dish"></i>
+        V3.8 DIRECT HLS ENGINE
+      </div>
+      <h1 class="font-heading font-black text-3xl sm:text-5xl tracking-tight text-white leading-tight uppercase">
+        Tiktok live generator link<br>
+        <span class="text-transparent bg-clip-text bg-gradient-to-r from-brand-yellow via-amber-200 to-zinc-400">kandang monyet</span>
+      </h1>
+      <p class="font-sans text-zinc-400 text-xs sm:text-sm max-w-md mx-auto">
+        Convert link siaran TikTok jadi URL aliran <code class="text-brand-yellow font-mono font-bold">.m3u8</code> mentah. Bebas nonton di iPhone Safari, VLC, atau browser tanpa ribet login.
+      </p>
+    </header>
+
+    <!-- FORM CARD (Neo-Brutalist Card) -->
+    <section class="bg-brand-card border-2 border-brand-border rounded-2xl p-5 sm:p-7 shadow-brutal relative overflow-hidden">
+      <div class="flex items-center justify-between mb-3">
+        <label for="tiktokUrl" class="font-mono text-xs font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-2">
+          <i class="fa-solid fa-link text-brand-yellow"></i> Link TikTok / Username
+        </label>
+        <button type="button" id="exampleBtn" class="font-mono text-xs text-brand-yellow hover:text-amber-300 font-bold transition flex items-center gap-1">
+          <i class="fa-solid fa-wand-magic-sparkles text-[10px]"></i> Coba Contoh
+        </button>
+      </div>
+
       <form id="convertForm" class="space-y-4">
-        <div>
-          <label for="tiktokUrl" class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">
-            Link TikTok Live atau Username
-          </label>
-          <div class="relative">
-            <input 
-              type="text" 
-              id="tiktokUrl" 
-              placeholder="https://vt.tiktok.com/... atau @username" 
-              required
-              class="w-full bg-zinc-950 border border-zinc-800 focus:border-zinc-500 focus:ring-2 focus:ring-zinc-500/20 text-white rounded-xl px-4 py-3.5 text-sm md:text-base outline-none transition placeholder-zinc-600 pr-24"
-            >
-            <button 
-              type="button" 
-              id="pasteBtn"
-              class="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg transition border border-zinc-700 font-medium">
-              Paste
-            </button>
-          </div>
-        </div>
-
-        <div class="flex items-center justify-between text-xs text-zinc-400">
-          <span>Contoh: <button type="button" id="exampleBtn" class="text-zinc-300 hover:underline">@mekaniktuax</button></span>
-          <span id="charCount"></span>
+        <div class="relative">
+          <input 
+            type="text" 
+            id="tiktokUrl" 
+            placeholder="https://vt.tiktok.com/... atau @username" 
+            required
+            class="w-full bg-[#0E0E12] border-2 border-brand-border focus:border-brand-yellow focus:ring-0 text-white font-mono rounded-xl px-4 py-3.5 text-sm sm:text-base outline-none transition placeholder-zinc-600 pr-20 shadow-inner"
+          >
+          <button 
+            type="button" 
+            id="pasteBtn"
+            class="btn-spring absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 text-xs font-mono font-bold bg-brand-border hover:bg-zinc-700 text-zinc-200 rounded-lg border border-zinc-600">
+            PASTE
+          </button>
         </div>
 
         <button 
           type="submit" 
           id="submitBtn"
-          class="w-full bg-white hover:bg-zinc-200 text-black font-bold py-3.5 px-6 rounded-xl transition duration-200 shadow-lg shadow-white/5 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50">
-          <svg id="btnIcon" class="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-          </svg>
-          <span id="btnText">Generate Link Stream</span>
+          class="btn-spring w-full bg-brand-yellow hover:bg-[#FFE34D] text-black font-heading font-black text-base py-3.5 px-6 rounded-xl border-2 border-black shadow-brutal flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 uppercase tracking-wide">
+          <i id="btnIcon" class="fa-solid fa-play"></i>
+          <span id="btnText">GENERATE LINK STREAM</span>
         </button>
       </form>
-    </div>
+    </section>
 
-    <!-- Error/Alert Banner -->
-    <div id="alertBox" class="hidden glass-card rounded-2xl p-5 border-l-4 border-amber-500 mb-6 transition">
+    <!-- ALERT / ERROR BOX -->
+    <div id="alertBox" class="hidden bg-[#181410] border-2 border-amber-600/70 rounded-2xl p-5 shadow-brutal transition animate-fade-in">
       <div class="flex items-start gap-3">
-        <span class="text-amber-400 text-xl font-bold">⚠️</span>
+        <div class="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0 text-amber-400 font-bold">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+        </div>
         <div>
-          <h4 id="alertTitle" class="font-bold text-white text-sm">Pemberitahuan</h4>
-          <p id="alertMessage" class="text-zinc-300 text-xs md:text-sm mt-1"></p>
+          <h4 id="alertTitle" class="font-heading font-black text-white text-sm uppercase">Pemberitahuan</h4>
+          <p id="alertMessage" class="font-sans text-zinc-300 text-xs sm:text-sm mt-1"></p>
         </div>
       </div>
     </div>
 
-    <!-- Result Card -->
-    <div id="resultCard" class="hidden glass-card rounded-2xl p-6 md:p-8 shadow-2xl space-y-5 animate-fade-in">
+    <!-- RESULT CARD (Neo-Brutalist Dark Showcase) -->
+    <div id="resultCard" class="hidden bg-brand-card border-2 border-brand-border rounded-2xl p-5 sm:p-7 shadow-brutal space-y-5 animate-fade-in">
+      
       <!-- Stream Info Header -->
-      <div class="flex items-center justify-between border-b border-zinc-800 pb-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b-2 border-brand-border pb-4">
         <div>
-          <div class="flex items-center gap-2 mb-1">
-            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-zinc-800 text-zinc-200 border border-zinc-700">
-              <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
-              LIVE
+          <div class="flex items-center gap-2 mb-1.5">
+            <span class="sticker-badge bg-red-600 text-white text-[10px] px-2.5 py-0.5 rounded-lg">
+              <span class="w-2 h-2 rounded-full bg-white animate-pulse"></span>
+              LIVE ON TIKTOK
             </span>
-            <span id="resViewers" class="text-xs text-zinc-400 font-medium bg-zinc-900 border border-zinc-800 px-2.5 py-0.5 rounded-full"></span>
+            <span id="resViewers" class="font-mono text-xs font-bold text-zinc-300 bg-[#0E0E12] border border-brand-border px-2.5 py-0.5 rounded-lg"></span>
           </div>
-          <h2 id="resTitle" class="text-base md:text-lg font-bold text-white line-clamp-1"></h2>
-          <p id="resHost" class="text-xs md:text-sm text-zinc-400 font-semibold"></p>
+          <h2 id="resTitle" class="font-heading font-black text-lg sm:text-xl text-white line-clamp-1"></h2>
+          <p id="resHost" class="font-mono text-xs sm:text-sm text-brand-yellow font-bold mt-0.5"></p>
         </div>
       </div>
 
-      <!-- Built-in Video Player -->
-      <div class="relative rounded-xl overflow-hidden bg-black aspect-video border border-zinc-800 shadow-inner">
+      <!-- Video Player Viewport -->
+      <div class="relative rounded-xl overflow-hidden bg-black aspect-video border-2 border-brand-border shadow-[0_0_20px_rgba(0,0,0,0.8)]">
         <video id="videoPlayer" controls playsinline class="w-full h-full object-contain"></video>
       </div>
 
-      <!-- Direct M3U8 Link Output -->
+      <!-- M3U8 URL Container -->
       <div class="space-y-2">
-        <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400">
-          URL Stream .m3u8 (Direct HLS)
+        <label class="block font-mono text-xs font-bold uppercase tracking-wider text-zinc-400">
+          <i class="fa-solid fa-terminal text-brand-yellow"></i> Direct Stream URL (.m3u8)
         </label>
         <div class="flex gap-2">
           <input 
             type="text" 
             id="m3u8Output" 
             readonly 
-            class="flex-1 bg-zinc-950 border border-zinc-800 text-zinc-200 rounded-xl px-3.5 py-2.5 text-xs font-mono outline-none select-all"
+            class="flex-1 bg-[#0E0E12] border-2 border-brand-border text-brand-yellow rounded-xl px-3.5 py-2.5 text-xs font-mono outline-none select-all"
           >
           <button 
             type="button" 
             id="copyBtn"
-            class="px-4 py-2.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap">
-            <span id="copyText">Salin</span>
+            class="btn-spring px-4 py-2.5 bg-brand-yellow hover:bg-[#FFE34D] text-black rounded-xl text-xs font-heading font-black border-2 border-black shadow-brutal-sm flex items-center gap-1.5 whitespace-nowrap uppercase">
+            <i class="fa-solid fa-copy"></i>
+            <span id="copyText">SALIN</span>
           </button>
         </div>
       </div>
@@ -138,23 +285,28 @@
           id="safariBtn" 
           href="#" 
           target="_blank" 
-          class="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-semibold text-zinc-200 transition">
-          🍏 Buka di Safari/iOS
+          class="btn-spring flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-[#0E0E12] hover:bg-zinc-800 border-2 border-brand-border text-xs font-mono font-bold text-white shadow-brutal-sm transition">
+          <i class="fa-brands fa-apple text-sm"></i> BUKA DI SAFARI
         </a>
         <a 
           id="vlcBtn" 
           href="#" 
-          class="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-semibold text-zinc-200 transition">
-          🟠 Putar di VLC
+          class="btn-spring flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-[#0E0E12] hover:bg-zinc-800 border-2 border-brand-border text-xs font-mono font-bold text-orange-400 shadow-brutal-sm transition">
+          <i class="fa-solid fa-circle-play text-sm"></i> BUKA DI VLC
         </a>
       </div>
     </div>
   </main>
 
-  <!-- Footer -->
-  <footer class="max-w-2xl mx-auto w-full text-center py-8 text-xs text-zinc-500 space-y-1.5">
-    <p>kandang monyet &middot; stream direct extractor</p>
-    <p>&copy; 2026 Crafted by <a href="https://www.instagram.com/dferdiantn" target="_blank" rel="noopener noreferrer" class="text-zinc-400 hover:text-white font-medium underline underline-offset-4 transition">@dferdiantn</a></p>
+  <!-- FOOTER (Neo-Brutalist Dark Footer) -->
+  <footer class="max-w-2xl mx-auto w-full text-center py-8 px-4 text-xs font-mono text-zinc-500 space-y-2 border-t-2 border-brand-border/40 mt-8">
+    <p class="font-bold text-zinc-400 tracking-wide uppercase">🐒 KANDANG MONYET &middot; STREAM DIRECT EXTRACTOR</p>
+    <p>
+      &copy; 2026 Crafted with <i class="fa-solid fa-heart text-red-500"></i> by 
+      <a href="https://www.instagram.com/dferdiantn" target="_blank" rel="noopener noreferrer" class="text-brand-yellow hover:underline font-bold transition">
+        @dferdiantn
+      </a>
+    </p>
   </footer>
 
   <script>
@@ -206,8 +358,8 @@
 
       // Loading state
       submitBtn.disabled = true;
-      btnText.textContent = 'Mengekstrak Siaran...';
-      btnIcon.classList.add('animate-spin');
+      btnText.textContent = 'MENGEKSTRAK SIARAN...';
+      btnIcon.className = 'fa-solid fa-spinner fa-spin';
       hideAlert();
       resultCard.classList.add('hidden');
 
@@ -236,15 +388,15 @@
         showAlert('Koneksi Gagal', 'Terjadi kesalahan saat menghubungi API converter: ' + err.message, 'red');
       } finally {
         submitBtn.disabled = false;
-        btnText.textContent = 'Generate Link Stream';
-        btnIcon.classList.remove('animate-spin');
+        btnText.textContent = 'GENERATE LINK STREAM';
+        btnIcon.className = 'fa-solid fa-play';
       }
     });
 
     function showResult(data) {
       resTitle.textContent = data.title || 'TikTok LIVE';
       resHost.textContent = `@${data.username}`;
-      resViewers.textContent = `👥 ${Number(data.viewers || 0).toLocaleString()} Penonton`;
+      resViewers.textContent = `👥 ${Number(data.viewers || 0).toLocaleString()} PENONTON`;
       m3u8Output.value = data.m3u8_url;
       safariBtn.href = data.m3u8_url;
       vlcBtn.href = `vlc://${data.m3u8_url}`;
@@ -252,10 +404,8 @@
       // Inisialisasi Player
       const streamUrl = data.m3u8_url;
       if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
-        // Native HLS (Safari iOS, macOS)
         videoPlayer.src = streamUrl;
       } else if (Hls.isSupported()) {
-        // Browser non-Safari (Chrome, Firefox, Edge) via hls.js
         hlsInstance = new Hls({ enableWorker: true });
         hlsInstance.loadSource(streamUrl);
         hlsInstance.attachMedia(videoPlayer);
@@ -267,19 +417,30 @@
       resultCard.scrollIntoView({ behavior: 'smooth' });
     }
 
-    // Copy to clipboard
+    // Copy to clipboard with Canvas Confetti (from kokopcoffee style)
     copyBtn.addEventListener('click', () => {
       m3u8Output.select();
       navigator.clipboard.writeText(m3u8Output.value).then(() => {
-        copyText.textContent = 'Tersalin! ✓';
-        setTimeout(() => { copyText.textContent = 'Salin'; }, 2000);
+        copyText.textContent = 'TERSALIN! ✓';
+        
+        // Trigger celebratory confetti
+        if (typeof confetti === 'function') {
+          confetti({
+            particleCount: 50,
+            spread: 60,
+            origin: { y: 0.8 },
+            colors: ['#FFD100', '#FF5E00', '#FFFFFF', '#00FFA3']
+          });
+        }
+
+        setTimeout(() => { copyText.textContent = 'SALIN'; }, 2000);
       });
     });
 
     function showAlert(title, message, color = 'amber') {
       alertTitle.textContent = title;
       alertMessage.textContent = message;
-      alertBox.className = `glass-card rounded-2xl p-5 border-l-4 border-${color}-500 mb-6 transition block`;
+      alertBox.classList.remove('hidden');
       alertBox.scrollIntoView({ behavior: 'smooth' });
     }
 
