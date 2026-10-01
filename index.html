@@ -288,18 +288,25 @@
       </div>
 
       <!-- Quick Action Buttons -->
-      <div class="grid grid-cols-2 gap-3 pt-2">
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
         <a 
           id="safariBtn" 
           href="#" 
           target="_blank" 
-          class="btn-spring flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-[#0E0E12] hover:bg-zinc-800 border-2 border-brand-border text-xs font-mono font-bold text-white shadow-brutal-sm transition">
+          class="btn-spring flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-[#0E0E12] hover:bg-zinc-800 border-2 border-brand-border text-xs font-mono font-bold text-white shadow-brutal-sm transition">
           <i class="fa-brands fa-apple text-sm"></i> BUKA DI SAFARI
+        </a>
+        <a 
+          id="chromeBtn" 
+          href="#" 
+          target="_blank" 
+          class="btn-spring flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-[#0E0E12] hover:bg-zinc-800 border-2 border-brand-border text-xs font-mono font-bold text-emerald-400 shadow-brutal-sm transition">
+          <i class="fa-brands fa-chrome text-sm text-emerald-400"></i> CHROME / ANDROID
         </a>
         <a 
           id="vlcBtn" 
           href="#" 
-          class="btn-spring flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-[#0E0E12] hover:bg-zinc-800 border-2 border-brand-border text-xs font-mono font-bold text-orange-400 shadow-brutal-sm transition">
+          class="btn-spring flex items-center justify-center gap-2 py-3 px-3 rounded-xl bg-[#0E0E12] hover:bg-zinc-800 border-2 border-brand-border text-xs font-mono font-bold text-orange-400 shadow-brutal-sm transition">
           <i class="fa-solid fa-circle-play text-sm"></i> BUKA DI VLC
         </a>
       </div>
@@ -339,6 +346,7 @@
     const copyText = document.getElementById('copyText');
     const videoPlayer = document.getElementById('videoPlayer');
     const safariBtn = document.getElementById('safariBtn');
+    const chromeBtn = document.getElementById('chromeBtn');
     const vlcBtn = document.getElementById('vlcBtn');
 
     let hlsInstance = null;
@@ -407,6 +415,7 @@
       resViewers.textContent = `👥 ${Number(data.viewers || 0).toLocaleString()} PENONTON`;
       m3u8Output.value = data.m3u8_url;
       safariBtn.href = data.m3u8_url;
+      chromeBtn.href = data.m3u8_url;
       vlcBtn.href = `vlc://${data.m3u8_url}`;
 
       // Inisialisasi Player
