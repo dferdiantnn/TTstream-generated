@@ -265,6 +265,16 @@
         <video id="videoPlayer" controls playsinline class="w-full h-full object-contain"></video>
       </div>
 
+      <!-- Anti-Stuck Live Sync Bar -->
+      <div class="flex items-center justify-between text-xs font-mono text-zinc-400 bg-[#0E0E12] border border-brand-border rounded-xl px-3 py-2">
+        <span class="flex items-center gap-1.5 text-zinc-300">
+          <i class="fa-solid fa-bolt text-emerald-400 text-[11px]"></i> Auto-Catchup Active
+        </span>
+        <button type="button" id="syncLiveBtn" class="btn-spring px-2.5 py-1 bg-brand-border hover:bg-zinc-700 text-brand-yellow font-bold rounded-lg border border-zinc-600 flex items-center gap-1.5 text-[11px] uppercase">
+          <i id="syncIcon" class="fa-solid fa-rotate text-[10px]"></i> Sync Ulang Live
+        </button>
+      </div>
+
       <!-- M3U8 URL Container -->
       <div class="space-y-2">
         <label class="block font-mono text-xs font-bold uppercase tracking-wider text-zinc-400">
@@ -348,8 +358,11 @@
     const safariBtn = document.getElementById('safariBtn');
     const chromeBtn = document.getElementById('chromeBtn');
     const vlcBtn = document.getElementById('vlcBtn');
+    const syncLiveBtn = document.getElementById('syncLiveBtn');
+    const syncIcon = document.getElementById('syncIcon');
 
     let hlsInstance = null;
+    let currentStreamUrl = '';
 
     // Paste from clipboard
     pasteBtn.addEventListener('click', async () => {
@@ -418,21 +431,108 @@
       chromeBtn.href = data.m3u8_url;
       vlcBtn.href = `vlc://${data.m3u8_url}`;
 
-      // Inisialisasi Player
-      const streamUrl = data.m3u8_url;
-      if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
-        videoPlayer.src = streamUrl;
-      } else if (Hls.isSupported()) {
-        hlsInstance = new Hls({ enableWorker: true });
-        hlsInstance.loadSource(streamUrl);
-        hlsInstance.attachMedia(videoPlayer);
-      } else {
-        videoPlayer.src = streamUrl;
-      }
+      // Inisialisasi Player dengan Anti-Stuck & Auto-Recovery
+      initPlayer(data.m3u8_url);
 
       resultCard.classList.remove('hidden');
       resultCard.scrollIntoView({ behavior: 'smooth' });
     }
+
+    function initPlayer(streamUrl) {
+      currentStreamUrl = streamUrl;
+
+      if (hlsInstance) {
+        hlsInstance.destroy();
+        hlsInstance = null;
+      }
+      videoPlayer.pause();
+
+      if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
+        // Native Apple HLS (Safari iOS & Mac)
+        videoPlayer.src = streamUrl;
+        videoPlayer.play().catch(() => {});
+      } else if (Hls.isSupported()) {
+        // High-resilience Low-Latency Hls.js configuration
+        hlsInstance = new Hls({
+          enableWorker: true,
+          lowLatencyMode: true,
+          backBufferLength: 30,
+          liveSyncDurationCount: 3,
+          liveMaxLatencyDurationCount: 5,
+          maxLiveSyncPlaybackRate: 1.15,
+          manifestLoadingTimeOut: 15000,
+          manifestLoadingMaxRetry: 6,
+          fragLoadingTimeOut: 20000,
+          fragLoadingMaxRetry: 6,
+          levelLoadingTimeOut: 15000,
+          levelLoadingMaxRetry: 6
+        });
+
+        hlsInstance.loadSource(streamUrl);
+        hlsInstance.attachMedia(videoPlayer);
+
+        hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
+          videoPlayer.play().catch(() => {});
+        });
+
+        // Auto error recovery
+        hlsInstance.on(Hls.Events.ERROR, (event, data) => {
+          if (data.fatal) {
+            switch (data.type) {
+              case Hls.ErrorTypes.NETWORK_ERROR:
+                console.warn('[HLS] Network error, recovering...');
+                hlsInstance.startLoad();
+                break;
+              case Hls.ErrorTypes.MEDIA_ERROR:
+                console.warn('[HLS] Media error, recovering...');
+                hlsInstance.recoverMediaError();
+                break;
+              default:
+                console.warn('[HLS] Fatal error, reloading stream...');
+                hlsInstance.destroy();
+                hlsInstance = null;
+                setTimeout(() => initPlayer(streamUrl), 1000);
+                break;
+            }
+          }
+        });
+      } else {
+        videoPlayer.src = streamUrl;
+        videoPlayer.play().catch(() => {});
+      }
+    }
+
+    // Auto-unfreeze watchdog (Bila buffering / stuck > 3 detik, otomatis kejar live edge terbaru)
+    let stallWatchdog = null;
+    videoPlayer.addEventListener('waiting', () => {
+      clearTimeout(stallWatchdog);
+      stallWatchdog = setTimeout(() => {
+        if (videoPlayer.buffered && videoPlayer.buffered.length > 0) {
+          const latestTime = videoPlayer.buffered.end(videoPlayer.buffered.length - 1);
+          if (latestTime - videoPlayer.currentTime > 0.8) {
+            console.log('[Anti-Stuck] Catching up to latest live edge...');
+            videoPlayer.currentTime = latestTime - 0.3;
+            videoPlayer.play().catch(() => {});
+          }
+        } else if (hlsInstance) {
+          hlsInstance.startLoad();
+        }
+      }, 3000);
+    });
+
+    videoPlayer.addEventListener('playing', () => {
+      clearTimeout(stallWatchdog);
+    });
+
+    // Manual Reconnect Live Sync Button
+    syncLiveBtn.addEventListener('click', () => {
+      if (!currentStreamUrl) return;
+      syncIcon.classList.add('fa-spin');
+      initPlayer(currentStreamUrl);
+      setTimeout(() => {
+        syncIcon.classList.remove('fa-spin');
+      }, 1200);
+    });
 
     // Copy to clipboard with Canvas Confetti (from kokopcoffee style)
     copyBtn.addEventListener('click', () => {
