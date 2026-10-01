@@ -378,6 +378,11 @@
 
     let hlsInstance = null;
     let currentStreamUrl = '';
+    let isStartupGrace = false;
+    let startupGraceTimer = null;
+    let lastPlayheadProgressTime = Date.now();
+    let lastKnownCurrentTime = -1;
+    let lastVideoFrameTime = Date.now();
 
     // Paste from clipboard
     pasteBtn.addEventListener('click', async () => {
@@ -464,29 +469,30 @@
 
       if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
         // Native Apple HLS (Safari iOS & Mac)
-        // Wajib cache-busting & load() agar Safari tidak membaca playlist m3u8 basi dari disk cache
-        const sep = streamUrl.includes('?') ? '&' : '?';
-        videoPlayer.src = streamUrl + sep + '_ts=' + Date.now();
-        videoPlayer.load();
+        videoPlayer.src = streamUrl;
         videoPlayer.play().catch(() => {});
         qualitySelect.innerHTML = '<option value="-1" class="bg-zinc-900 text-white">Auto (HD)</option>';
       } else if (Hls.isSupported()) {
-        // High-resilience Standard Hls.js (lowLatencyMode FALSE agar tidak drop chunk 2s TikTok)
+        // High-resilience Standard Hls.js di-tuning khusus untuk window 6 detik TikTok
         hlsInstance = new Hls({
           enableWorker: true,
           lowLatencyMode: false,
-          backBufferLength: 10,
-          maxBufferLength: 10,
-          maxMaxBufferLength: 20,
-          liveSyncDurationCount: 2,
-          liveMaxLatencyDurationCount: 4,
-          maxLiveSyncPlaybackRate: 1.1,
-          manifestLoadingTimeOut: 15000,
+          backBufferLength: 2,
+          maxBufferLength: 6,
+          maxMaxBufferLength: 8,
+          liveSyncDurationCount: 1.5,
+          liveMaxLatencyDurationCount: 2.8,
+          maxLiveSyncPlaybackRate: 1.15,
+          liveDurationInfinity: true,
+          manifestLoadingTimeOut: 10000,
           manifestLoadingMaxRetry: 6,
-          fragLoadingTimeOut: 20000,
+          fragLoadingTimeOut: 10000,
           fragLoadingMaxRetry: 6,
-          levelLoadingTimeOut: 15000,
-          levelLoadingMaxRetry: 6
+          levelLoadingTimeOut: 10000,
+          levelLoadingMaxRetry: 6,
+          nudgeOffset: 0.2,
+          nudgeMaxRetry: 5,
+          maxAudioFramesDrift: 1
         });
 
         hlsInstance.loadSource(streamUrl);
@@ -544,7 +550,7 @@
                 hlsInstance.recoverMediaError();
                 break;
               default:
-                console.warn('[HLS] Fatal error, reloading stream...');
+                console.warn('[HLS] Fatal error, restarting...');
                 hlsInstance.destroy();
                 hlsInstance = null;
                 setTimeout(() => initPlayer(streamUrl), 1000);
@@ -556,49 +562,70 @@
         videoPlayer.src = streamUrl;
         videoPlayer.play().catch(() => {});
       }
+
+      // Beri jeda 5 detik saat awal memuat agar watchdog tidak menginterupsi buffering awal
+      isStartupGrace = true;
+      clearTimeout(startupGraceTimer);
+      startupGraceTimer = setTimeout(() => {
+        isStartupGrace = false;
+      }, 5000);
+    }
+
+    // Lompat halus ke titik live terbaru tanpa reload (menjaga audio & video tetap sinkron)
+    function jumpToLiveEdge(force = false) {
+      try {
+        if (videoPlayer.seekable && videoPlayer.seekable.length > 0) {
+          const liveEnd = videoPlayer.seekable.end(videoPlayer.seekable.length - 1);
+          const lag = liveEnd - videoPlayer.currentTime;
+          if (liveEnd > 0 && (force || lag > 2.0)) {
+            const target = Math.max(0, liveEnd - 0.5);
+            console.log('[LiveSync] Catching up to live edge:', target);
+            videoPlayer.currentTime = target;
+            videoPlayer.play().catch(() => {});
+            return true;
+          }
+        }
+        if (hlsInstance && hlsInstance.liveSyncPosition) {
+          const lag = Math.abs(hlsInstance.liveSyncPosition - videoPlayer.currentTime);
+          if (force || lag > 2.0) {
+            videoPlayer.currentTime = hlsInstance.liveSyncPosition;
+            videoPlayer.play().catch(() => {});
+            return true;
+          }
+        }
+      } catch (e) {}
+      return false;
     }
 
     // Fungsi Reconnect / Sync Live
-    let consecutiveStalls = 0;
-    let lastSyncTime = 0;
-
-    async function triggerSync(isAuto = false) {
+    function triggerSync(isAuto = false) {
       if (!currentStreamUrl) return;
       if (syncIcon) syncIcon.classList.add('fa-spin');
 
       const badgeText = document.getElementById('syncStatusText');
       if (badgeText) {
-        badgeText.textContent = isAuto ? 'Auto-Resyncing...' : 'Syncing...';
+        badgeText.textContent = isAuto ? 'Live Syncing...' : 'Syncing...';
         badgeText.className = 'text-amber-400 font-bold';
       }
 
-      const now = Date.now();
-      if (now - lastSyncTime < 10000) {
-        consecutiveStalls++;
-      } else {
-        consecutiveStalls = 1;
-      }
-      lastSyncTime = now;
-
-      // Jika stuck berulang dalam 10 detik, refresh stream URL baru di background dari TikTok
-      if (consecutiveStalls >= 2 && tiktokUrl.value.trim()) {
-        console.log('[Auto-Sync] Re-fetching fresh stream URL from TikTok API...');
-        try {
-          const res = await fetch(`/api/convert?url=${encodeURIComponent(tiktokUrl.value.trim())}`);
-          const freshData = await res.json();
-          if (freshData.status === 'live' && freshData.m3u8_url) {
-            currentStreamUrl = freshData.m3u8_url;
-            m3u8Output.value = freshData.m3u8_url;
-            safariBtn.href = freshData.m3u8_url;
-            chromeBtn.href = freshData.m3u8_url;
-            vlcBtn.href = `vlc://${freshData.m3u8_url}`;
+      // 1. Coba lompat halus ke titik live
+      const jumped = jumpToLiveEdge(true);
+      
+      // 2. Jika lompat tidak berhasil atau ditekan secara manual, reset decoder/stream
+      if (!jumped || !isAuto) {
+        if (hlsInstance) {
+          hlsInstance.recoverMediaError();
+        } else {
+          if (videoPlayer.seekable && videoPlayer.seekable.length > 0) {
+            const liveEnd = videoPlayer.seekable.end(videoPlayer.seekable.length - 1);
+            videoPlayer.currentTime = Math.max(0, liveEnd - 0.5);
+            videoPlayer.play().catch(() => {});
+          } else {
+            videoPlayer.src = currentStreamUrl;
+            videoPlayer.play().catch(() => {});
           }
-        } catch (e) {
-          console.warn('[Auto-Sync] Background token refresh failed, using existing URL:', e);
         }
       }
-
-      initPlayer(currentStreamUrl);
 
       setTimeout(() => {
         if (syncIcon) syncIcon.classList.remove('fa-spin');
@@ -606,7 +633,7 @@
           badgeText.textContent = 'Auto-Catchup Active';
           badgeText.className = 'text-zinc-300';
         }
-      }, 1500);
+      }, 1200);
     }
 
     // Manual Reconnect Live Sync Button
@@ -614,36 +641,67 @@
       triggerSync(false);
     });
 
-    // BULLETPROOF TIMEUPDATE WATCHDOG (Bekerja 100% di iPhone Safari, Android Chrome, & PC)
-    let lastPlayheadProgressTime = Date.now();
-    let lastKnownCurrentTime = -1;
+    // FRAME WATCHDOG (Mendeteksi Video Macet / Freeze walau Suara Masih Jalan)
+    function watchVideoFrames() {
+      if ('requestVideoFrameCallback' in videoPlayer) {
+        videoPlayer.requestVideoFrameCallback(() => {
+          lastVideoFrameTime = Date.now();
+          if (!videoPlayer.paused && !videoPlayer.ended) {
+            watchVideoFrames();
+          }
+        });
+      }
+    }
+
+    // Cegah replay looping dari masa lalu saat user unpause/play lagi
+    videoPlayer.addEventListener('play', () => {
+      setTimeout(() => {
+        jumpToLiveEdge(false);
+      }, 150);
+    });
 
     videoPlayer.addEventListener('playing', () => {
       lastPlayheadProgressTime = Date.now();
+      lastVideoFrameTime = Date.now();
       lastKnownCurrentTime = videoPlayer.currentTime;
+      watchVideoFrames();
     });
 
     videoPlayer.addEventListener('timeupdate', () => {
       const cur = videoPlayer.currentTime;
-      // Jika detik video benar-benar bertambah maju
-      if (Math.abs(cur - lastKnownCurrentTime) > 0.05) {
+      if (Math.abs(cur - lastKnownCurrentTime) > 0.08) {
         lastKnownCurrentTime = cur;
         lastPlayheadProgressTime = Date.now();
       }
     });
 
-    // Cek setiap 1 detik: jika detik video macet > 3 detik, otomatis resync seketika!
+    // Cek setiap 1.5 detik: deteksi video frame freeze (suara jalan gambar diam) atau playhead macet
     setInterval(() => {
-      if (!currentStreamUrl || videoPlayer.ended) return;
+      if (!currentStreamUrl || videoPlayer.paused || videoPlayer.ended || isStartupGrace) return;
 
-      const elapsed = Date.now() - lastPlayheadProgressTime;
-      // Jika playhead membeku selama lebih dari 3 detik saat video aktif:
-      if (elapsed > 3200) {
-        console.warn(`[Watchdog] Freeze terdeteksi (${elapsed}ms). Auto-resyncing...`);
-        lastPlayheadProgressTime = Date.now(); // reset timer agar tidak spamming
+      const now = Date.now();
+
+      // Skenario 1: Video freeze tapi suara jalan (Desync / Hardware Decoder Stagnant)
+      if ('requestVideoFrameCallback' in videoPlayer) {
+        const frameLag = now - lastVideoFrameTime;
+        if (frameLag > 3000) {
+          console.warn(`[Watchdog] Frame video membeku (${frameLag}ms, suara jalan gambar diam). Resyncing...`);
+          lastVideoFrameTime = now;
+          lastPlayheadProgressTime = now;
+          triggerSync(true);
+          return;
+        }
+      }
+
+      // Skenario 2: Playhead macet total (keduanya berhenti)
+      const playheadLag = now - lastPlayheadProgressTime;
+      if (playheadLag > 3500) {
+        console.warn(`[Watchdog] Playhead berhenti (${playheadLag}ms). Resyncing...`);
+        lastPlayheadProgressTime = now;
+        lastVideoFrameTime = now;
         triggerSync(true);
       }
-    }, 1000);
+    }, 1500);
 
     // Resolution Quality Selector Listener (YouTube Style)
     qualitySelect.addEventListener('change', () => {
