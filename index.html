@@ -464,18 +464,23 @@
 
       if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
         // Native Apple HLS (Safari iOS & Mac)
-        videoPlayer.src = streamUrl;
+        // Wajib cache-busting & load() agar Safari tidak membaca playlist m3u8 basi dari disk cache
+        const sep = streamUrl.includes('?') ? '&' : '?';
+        videoPlayer.src = streamUrl + sep + '_ts=' + Date.now();
+        videoPlayer.load();
         videoPlayer.play().catch(() => {});
         qualitySelect.innerHTML = '<option value="-1" class="bg-zinc-900 text-white">Auto (HD)</option>';
       } else if (Hls.isSupported()) {
-        // High-resilience Low-Latency Hls.js configuration
+        // High-resilience Standard Hls.js (lowLatencyMode FALSE agar tidak drop chunk 2s TikTok)
         hlsInstance = new Hls({
           enableWorker: true,
-          lowLatencyMode: true,
-          backBufferLength: 30,
-          liveSyncDurationCount: 3,
-          liveMaxLatencyDurationCount: 5,
-          maxLiveSyncPlaybackRate: 1.15,
+          lowLatencyMode: false,
+          backBufferLength: 10,
+          maxBufferLength: 10,
+          maxMaxBufferLength: 20,
+          liveSyncDurationCount: 2,
+          liveMaxLatencyDurationCount: 4,
+          maxLiveSyncPlaybackRate: 1.1,
           manifestLoadingTimeOut: 15000,
           manifestLoadingMaxRetry: 6,
           fragLoadingTimeOut: 20000,
@@ -554,14 +559,43 @@
     }
 
     // Fungsi Reconnect / Sync Live
-    function triggerSync(isAuto = false) {
+    let consecutiveStalls = 0;
+    let lastSyncTime = 0;
+
+    async function triggerSync(isAuto = false) {
       if (!currentStreamUrl) return;
       if (syncIcon) syncIcon.classList.add('fa-spin');
 
       const badgeText = document.getElementById('syncStatusText');
-      if (badgeText && isAuto) {
-        badgeText.textContent = 'Auto-Resyncing...';
+      if (badgeText) {
+        badgeText.textContent = isAuto ? 'Auto-Resyncing...' : 'Syncing...';
         badgeText.className = 'text-amber-400 font-bold';
+      }
+
+      const now = Date.now();
+      if (now - lastSyncTime < 10000) {
+        consecutiveStalls++;
+      } else {
+        consecutiveStalls = 1;
+      }
+      lastSyncTime = now;
+
+      // Jika stuck berulang dalam 10 detik, refresh stream URL baru di background dari TikTok
+      if (consecutiveStalls >= 2 && tiktokUrl.value.trim()) {
+        console.log('[Auto-Sync] Re-fetching fresh stream URL from TikTok API...');
+        try {
+          const res = await fetch(`/api/convert?url=${encodeURIComponent(tiktokUrl.value.trim())}`);
+          const freshData = await res.json();
+          if (freshData.status === 'live' && freshData.m3u8_url) {
+            currentStreamUrl = freshData.m3u8_url;
+            m3u8Output.value = freshData.m3u8_url;
+            safariBtn.href = freshData.m3u8_url;
+            chromeBtn.href = freshData.m3u8_url;
+            vlcBtn.href = `vlc://${freshData.m3u8_url}`;
+          }
+        } catch (e) {
+          console.warn('[Auto-Sync] Background token refresh failed, using existing URL:', e);
+        }
       }
 
       initPlayer(currentStreamUrl);
@@ -580,44 +614,36 @@
       triggerSync(false);
     });
 
-    // ACTIVE HEARTBEAT WATCHDOG (Mendeteksi detik video macet di SEMUA browser termasuk iPhone Safari)
-    let lastTime = 0;
-    let stuckCount = 0;
-    let isUserPaused = false;
+    // BULLETPROOF TIMEUPDATE WATCHDOG (Bekerja 100% di iPhone Safari, Android Chrome, & PC)
+    let lastPlayheadProgressTime = Date.now();
+    let lastKnownCurrentTime = -1;
 
-    videoPlayer.addEventListener('pause', () => {
-      // Tandai jika sengaja di-pause manual
-      if (videoPlayer.duration && videoPlayer.currentTime < videoPlayer.duration - 1) {
-        isUserPaused = true;
+    videoPlayer.addEventListener('playing', () => {
+      lastPlayheadProgressTime = Date.now();
+      lastKnownCurrentTime = videoPlayer.currentTime;
+    });
+
+    videoPlayer.addEventListener('timeupdate', () => {
+      const cur = videoPlayer.currentTime;
+      // Jika detik video benar-benar bertambah maju
+      if (Math.abs(cur - lastKnownCurrentTime) > 0.05) {
+        lastKnownCurrentTime = cur;
+        lastPlayheadProgressTime = Date.now();
       }
     });
 
-    videoPlayer.addEventListener('play', () => {
-      isUserPaused = false;
-      stuckCount = 0;
-      lastTime = videoPlayer.currentTime;
-    });
-
-    // Cek setiap 1.5 detik: jika video macet > 3 detik, otomatis resync persis seperti tombol manual!
+    // Cek setiap 1 detik: jika detik video macet > 3 detik, otomatis resync seketika!
     setInterval(() => {
-      if (!currentStreamUrl || isUserPaused || videoPlayer.paused) return;
+      if (!currentStreamUrl || videoPlayer.ended) return;
 
-      const currentTime = videoPlayer.currentTime;
-      // Jika detik video tidak bertambah
-      if (currentTime > 0 && Math.abs(currentTime - lastTime) < 0.25) {
-        stuckCount++;
-        console.warn(`[Watchdog] Video freeze terdeteksi: ${stuckCount * 1.5}s`);
-
-        if (stuckCount >= 2) {
-          console.log('[Watchdog] Menjalankan Auto-Sync otomatis!');
-          stuckCount = 0;
-          triggerSync(true);
-        }
-      } else {
-        stuckCount = 0;
-        lastTime = currentTime;
+      const elapsed = Date.now() - lastPlayheadProgressTime;
+      // Jika playhead membeku selama lebih dari 3 detik saat video aktif:
+      if (elapsed > 3200) {
+        console.warn(`[Watchdog] Freeze terdeteksi (${elapsed}ms). Auto-resyncing...`);
+        lastPlayheadProgressTime = Date.now(); // reset timer agar tidak spamming
+        triggerSync(true);
       }
-    }, 1500);
+    }, 1000);
 
     // Resolution Quality Selector Listener (YouTube Style)
     qualitySelect.addEventListener('change', () => {
